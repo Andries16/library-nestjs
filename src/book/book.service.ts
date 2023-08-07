@@ -1,12 +1,16 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BookEntity } from './book.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { CreateBookDto } from './dto/create-book.dto';
-import { validate } from 'class-validator';
 import { ObjectId } from 'mongodb';
 import { UpdateBookDto } from './dto/update-book.dto';
 import { WriterEntity } from 'src/writer/writer.entity';
+import { validateObject } from 'src/validator/validate';
 
 @Injectable()
 export class BookService {
@@ -21,52 +25,38 @@ export class BookService {
     return await this.BookRepository.find();
   }
 
-  async create(dto: CreateBookDto): Promise<BookEntity> {
-    const { title, url, writer_id } = dto;
+  async create(dto: CreateBookDto): Promise<BookEntity | any> {
+    const { url, writer_id } = dto;
 
     const book = await this.BookRepository.findOne({
-      where: { title: title, url: url },
+      where: { url: url },
     });
-    if (book)
-      throw new HttpException(
-        { message: 'This book alerdy exist' },
-        HttpStatus.BAD_REQUEST,
-      );
+    if (book) throw new BadRequestException('This book alerdy exist');
 
-    const newBook = new BookEntity();
-    newBook.title = title;
-    newBook.url = url;
+    const newBook = Object.assign(new BookEntity(), dto);
+    newBook.comments = [];
+    await validateObject(newBook);
 
-    const errors = await validate(newBook);
-
-    if (errors.length > 0)
-      throw new HttpException(
-        { message: 'Validation failed', errors },
-        HttpStatus.BAD_REQUEST,
-      );
-
-    const writer = await this.WriterRepository.findOneByOrFail({
-      id: writer_id,
+    const writer = await this.WriterRepository.findOneBy({
+      _id: new ObjectId(writer_id),
+      role: 1,
     });
     if (!writer)
-      throw new HttpException(
-        { message: 'Writer not found' },
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new NotFoundException(`Writer with id ${writer_id} not found`);
     writer.books.push(newBook);
 
     return await this.BookRepository.save(newBook);
   }
 
   async getById(id: ObjectId): Promise<BookEntity> {
-    return this.BookRepository.findOneBy({ id: id });
+    const book = await this.BookRepository.findOneBy({ _id: id });
+    if (!book) throw new NotFoundException(`Book with id ${id} not found`);
+    return book;
   }
 
   async update(id: ObjectId, dto: UpdateBookDto): Promise<BookEntity> {
-    const book = await this.BookRepository.findOneBy({ id: id });
-
-    if (!book)
-      throw new HttpException({ message: 'Not found' }, HttpStatus.NOT_FOUND);
+    const book = await this.BookRepository.findOneBy({ _id: id });
+    if (!book) throw new NotFoundException(`Book with id ${id} not found`);
 
     const updated = Object.assign(book, dto);
     return await this.BookRepository.save(updated);

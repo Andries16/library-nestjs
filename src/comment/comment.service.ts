@@ -1,13 +1,12 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CommentEntity } from './comment.entity';
 import { DeleteResult, Repository } from 'typeorm';
-import { ObjectId } from 'mongodb';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { BookEntity } from 'src/book/book.entity';
-import { validate } from 'class-validator';
-import { HttpErrorByCode } from '@nestjs/common/utils/http-error-by-code.util';
 import { UpdateCommentDto } from './dto/update-comment.dto';
+import { validateObject } from 'src/validator/validate';
+import { ObjectId } from 'mongodb';
 
 @Injectable()
 export class CommentService {
@@ -22,33 +21,38 @@ export class CommentService {
     return await this.CommentRepository.find();
   }
 
-  async create(id: ObjectId, dto: CreateCommentDto): Promise<CommentEntity> {
-    const { body, book_id } = dto;
+  async create(dto: CreateCommentDto): Promise<CommentEntity> {
+    const { book_id } = dto;
 
     const comment = new CommentEntity();
     comment.date = Date.now();
     comment.body = dto.body;
 
-    const errors = await validate(comment);
+    await validateObject(comment);
 
-    if (errors.length > 0)
-      throw new HttpException(
-        { message: 'Validation failed' },
-        HttpStatus.BAD_REQUEST,
-      );
+    const book = await this.BookRepository.findOneBy({
+      _id: new ObjectId(book_id),
+    });
+    if (!book) throw new NotFoundException(`Book with id ${book_id} not found`);
 
-    const book = await this.BookRepository.findOneBy({ id: book_id });
     book.comments.push(comment);
     return await this.CommentRepository.save(comment);
   }
 
   async getById(id: ObjectId): Promise<CommentEntity> {
-    return await this.CommentRepository.findOneBy({ id: id });
+    const comment = await this.CommentRepository.findOneBy({ _id: id });
+    if (!comment)
+      throw new NotFoundException(`Comment with id ${id} not found`);
+    return comment;
   }
 
   async update(id: ObjectId, dto: UpdateCommentDto) {
-    const comment = this.CommentRepository.findOneBy({ id: id });
+    const comment = this.CommentRepository.findOneBy({ _id: id });
+    if (!comment)
+      throw new NotFoundException(`Comment with id ${id} not found`);
     const updated = Object.assign(comment, dto);
+
+    await validateObject(updated);
 
     return await this.CommentRepository.save(updated);
   }

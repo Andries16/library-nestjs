@@ -1,11 +1,15 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UserEntity } from './user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeleteResult, Repository } from 'typeorm';
 import { ObjectId } from 'mongodb';
 import { CreateUserDto } from './dto/create-user.dto';
-import { validate } from 'class-validator';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { validateObject } from 'src/validator/validate';
 
 @Injectable()
 export class UserService {
@@ -15,55 +19,35 @@ export class UserService {
   ) {}
 
   async getAll(): Promise<UserEntity[]> {
-    return await this.UserRepository.find();
+    return await this.UserRepository.find({ where: { role: 2 } });
   }
 
   async create(dto: CreateUserDto): Promise<UserEntity> {
-    const { name, email, password } = dto;
+    const { email } = dto;
 
     const user = await this.UserRepository.findOneBy({ email: email });
     if (user)
-      throw new HttpException(
-        {
-          message: 'Input data validation failed',
-          error: 'Email must be unique',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new BadRequestException(`User with this email alerdy exist`);
 
-    const NewUser = new UserEntity();
-    NewUser.name = name;
-    NewUser.email = email;
-    NewUser.password = password;
+    let NewUser = new UserEntity();
+    NewUser = Object.assign(NewUser, dto);
     NewUser.role = 2;
 
-    const errors = await validate(NewUser);
-
-    if (errors.length > 0)
-      throw new HttpException(
-        { message: 'Failed validating data', errors },
-        HttpStatus.BAD_REQUEST,
-      );
+    await validateObject(NewUser);
 
     return this.UserRepository.save(NewUser);
   }
 
   async getById(id: ObjectId): Promise<UserEntity> {
-    const user = await this.UserRepository.findOneBy({ id: id });
-    if (!user)
-      throw new HttpException({ message: 'Not Found' }, HttpStatus.NOT_FOUND);
+    const user = await this.UserRepository.findOneBy({ _id: id, role: 2 });
+    if (!user) throw new NotFoundException(`User with id ${id} not found`);
     return user;
   }
 
   async update(id: ObjectId, dto: UpdateUserDto): Promise<UserEntity> {
-    const user = await this.UserRepository.findOneBy({ id: id });
+    const user = await this.UserRepository.findOneBy({ _id: id, role: 2 });
 
-    if (!user)
-      throw new HttpException(
-        { message: 'User not found' },
-        HttpStatus.NOT_FOUND,
-      );
-
+    if (!user) throw new NotFoundException(`User with ud ${id} not found`);
     delete user.password;
 
     const updated = Object.assign(user, dto);
@@ -71,6 +55,10 @@ export class UserService {
   }
 
   async delete(id: ObjectId): Promise<DeleteResult> {
-    return await this.UserRepository.delete(id);
+    return await this.UserRepository.delete({ _id: id, role: 2 });
+  }
+
+  async getByEmail(email: string): Promise<UserEntity> {
+    return await this.UserRepository.findOneBy({ email: email });
   }
 }

@@ -1,17 +1,19 @@
 import { CommentEntity } from 'src/comment/comment.entity';
 import { WriterEntity } from 'src/writer/writer.entity';
 import { Entity, ManyToOne, OneToMany } from 'typeorm';
-import { Column, ObjectId, ObjectIdColumn } from 'typeorm';
-
+import { Column, ObjectIdColumn } from 'typeorm';
+import { ObjectId } from 'mongodb';
 @Entity('books')
 export class BookEntity {
-  @ObjectIdColumn() id: ObjectId;
+  @ObjectIdColumn() _id: ObjectId;
   @Column() title: string;
   @Column() url: string;
 
-  @ManyToOne((type) => WriterEntity, (writer) => writer.books)
-  writer: WriterEntity;
+  @ManyToOne(() => WriterEntity, (writer) => writer.books)
+  @Column()
+  writer_id: WriterEntity;
 
-  @OneToMany((type) => CommentEntity, (comment) => comment.book)
+  @OneToMany(() => CommentEntity, (comment) => comment.book)
+  @Column()
   comments: CommentEntity[];
 }

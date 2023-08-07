@@ -1,29 +1,10 @@
-import { IsEmail } from 'class-validator';
-import {
-  BeforeInsert,
-  Column,
-  Entity,
-  ObjectId,
-  ObjectIdColumn,
-  OneToMany,
-} from 'typeorm';
-import * as bcrypt from 'bcryptjs';
+import { Column, Entity, OneToMany } from 'typeorm';
 import { BookEntity } from 'src/book/book.entity';
 import { UserEntity } from 'src/user/user.entity';
 
 @Entity('users')
 export class WriterEntity extends UserEntity {
-  @ObjectIdColumn() id: ObjectId;
-  @Column() name: string;
-  @Column() @IsEmail() email: string;
-  @Column() password: string;
-  @Column() role: number;
-
-  @BeforeInsert()
-  async hashPassword() {
-    this.password = await bcrypt.hash(this.password, 10);
-  }
-
-  @OneToMany((type) => BookEntity, (book) => book.writer)
+  @OneToMany(() => BookEntity, (book) => book.writer_id)
+  @Column()
   books: BookEntity[];
 }

@@ -1,10 +1,15 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { WriterEntity } from './writer.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeleteResult, ObjectId, Repository } from 'typeorm';
+import { DeleteResult, Repository } from 'typeorm';
 import { CreateWriterDto } from './dto/create-writer.dto';
-import { validate } from 'class-validator';
 import { UpdateWriterDto } from './dto/update-writer.dto';
+import { validateObject } from 'src/validator/validate';
+import { ObjectId } from 'mongodb';
 
 @Injectable()
 export class WriterService {
@@ -14,45 +19,35 @@ export class WriterService {
   ) {}
 
   async getAll(): Promise<WriterEntity[]> {
-    return this.WriterRepository.find();
+    return await this.WriterRepository.find({ where: { role: 1 } });
   }
 
   async create(dto: CreateWriterDto): Promise<WriterEntity> {
-    const { name, email, password } = dto;
+    const { email } = dto;
 
-    const writer = this.WriterRepository.findOneBy({ email: email });
+    const writer = await this.WriterRepository.findOneBy({ email: email });
 
     if (writer)
-      throw new HttpException(
-        { message: 'Alerdy exist' },
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new BadRequestException(`Writer with this email alerdy exist`);
 
-    const newWriter = new WriterEntity();
-    newWriter.email = email;
-    newWriter.name = name;
-    newWriter.password = password;
+    let newWriter = new WriterEntity();
+    newWriter = Object.assign(newWriter, dto);
     newWriter.role = 1;
     newWriter.books = [];
-
-    const errors = await validate(newWriter);
-    if (errors.length > 0)
-      throw new HttpException(
-        { message: 'Validation failed' },
-        HttpStatus.BAD_REQUEST,
-      );
+    await validateObject(newWriter);
 
     return await this.WriterRepository.save(newWriter);
   }
 
   async getById(id: ObjectId): Promise<WriterEntity> {
-    return this.WriterRepository.findOneByOrFail({ id: id });
+    const writer = await this.WriterRepository.findOneBy({ _id: id, role: 1 });
+    if (!writer) throw new NotFoundException(`Writer with id ${id} not found`);
+    return writer;
   }
-  async update(id: ObjectId, dto: UpdateWriterDto): Promise<WriterEntity> {
-    const writer = await this.WriterRepository.findOneBy({ id: id });
-    if (!writer)
-      throw new HttpException({ message: 'not found' }, HttpStatus.NOT_FOUND);
 
+  async update(id: ObjectId, dto: UpdateWriterDto): Promise<WriterEntity> {
+    const writer = await this.WriterRepository.findOneBy({ _id: id });
+    if (!writer) throw new NotFoundException(`Writer with id ${id} not found`);
     delete writer.password;
     delete writer.books;
 
