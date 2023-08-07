@@ -3,11 +3,9 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
-  HttpException,
-  HttpStatus,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from './role.enum';
+import { Role } from '../role.enum';
 import { ROLES_KEY } from './roles.decorator';
 import { JwtService } from '@nestjs/jwt';
 
@@ -26,12 +24,13 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const req = context.switchToHttp().getRequest();
+    const token = context.switchToHttp().getRequest().headers.accesstoken;
     type PayloadType = {
       role: Role;
     };
-    const user = this.JwtService.decode(req.headers.accesstoken) as PayloadType;
-    if (!user) throw new UnauthorizedException(user);
+    const user = this.JwtService.decode(token) as PayloadType;
+    if (!user || !this.JwtService.verify(token))
+      throw new UnauthorizedException();
     return requiredRoles.some((role) => user.role == role);
   }
 }

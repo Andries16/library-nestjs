@@ -10,7 +10,6 @@ import { CreateBookDto } from './dto/create-book.dto';
 import { ObjectId } from 'mongodb';
 import { UpdateBookDto } from './dto/update-book.dto';
 import { WriterEntity } from 'src/writer/writer.entity';
-import { validateObject } from 'src/validator/validate';
 
 @Injectable()
 export class BookService {
@@ -27,15 +26,12 @@ export class BookService {
 
   async create(dto: CreateBookDto): Promise<BookEntity | any> {
     const { url, writer_id } = dto;
-
     const book = await this.BookRepository.findOne({
       where: { url: url },
     });
     if (book) throw new BadRequestException('This book alerdy exist');
-
     const newBook = Object.assign(new BookEntity(), dto);
     newBook.comments = [];
-    await validateObject(newBook);
 
     const writer = await this.WriterRepository.findOneBy({
       _id: new ObjectId(writer_id),

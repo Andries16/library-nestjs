@@ -9,7 +9,6 @@ import { DeleteResult, Repository } from 'typeorm';
 import { ObjectId } from 'mongodb';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { validateObject } from 'src/validator/validate';
 
 @Injectable()
 export class UserService {
@@ -24,16 +23,12 @@ export class UserService {
 
   async create(dto: CreateUserDto): Promise<UserEntity> {
     const { email } = dto;
-
     const user = await this.UserRepository.findOneBy({ email: email });
     if (user)
       throw new BadRequestException(`User with this email alerdy exist`);
 
-    let NewUser = new UserEntity();
-    NewUser = Object.assign(NewUser, dto);
+    const NewUser = Object.assign(new UserEntity(), dto);
     NewUser.role = 2;
-
-    await validateObject(NewUser);
 
     return this.UserRepository.save(NewUser);
   }
@@ -46,7 +41,6 @@ export class UserService {
 
   async update(id: ObjectId, dto: UpdateUserDto): Promise<UserEntity> {
     const user = await this.UserRepository.findOneBy({ _id: id, role: 2 });
-
     if (!user) throw new NotFoundException(`User with ud ${id} not found`);
     delete user.password;
 
@@ -55,10 +49,13 @@ export class UserService {
   }
 
   async delete(id: ObjectId): Promise<DeleteResult> {
+    const user = await this.UserRepository.findOneBy({ _id: id, role: 2 });
+
+    if (!user) throw new NotFoundException(`User with ud ${id} not found`);
     return await this.UserRepository.delete({ _id: id, role: 2 });
   }
 
   async getByEmail(email: string): Promise<UserEntity> {
-    return await this.UserRepository.findOneBy({ email: email });
+    return await this.UserRepository.findOneBy({ email: email, role: 2 });
   }
 }

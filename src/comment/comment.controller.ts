@@ -13,6 +13,8 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { DeleteResult } from 'typeorm';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { ObjectId } from 'mongodb';
+import { Roles } from 'src/auth/roles/roles.decorator';
+import { Role } from 'src/auth/role.enum';
 
 @Controller('comments')
 export class CommentController {
@@ -41,6 +43,7 @@ export class CommentController {
     return await this.CommentService.update(new ObjectId(id), dto);
   }
 
+  @Roles(Role.User)
   @Delete(':id')
   async delete(@Param('id') id: string): Promise<DeleteResult> {
     return await this.CommentService.delete(new ObjectId(id));

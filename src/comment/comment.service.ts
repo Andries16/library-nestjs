@@ -5,7 +5,6 @@ import { DeleteResult, Repository } from 'typeorm';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { BookEntity } from 'src/book/book.entity';
 import { UpdateCommentDto } from './dto/update-comment.dto';
-import { validateObject } from 'src/validator/validate';
 import { ObjectId } from 'mongodb';
 
 @Injectable()
@@ -23,18 +22,13 @@ export class CommentService {
 
   async create(dto: CreateCommentDto): Promise<CommentEntity> {
     const { book_id } = dto;
-
     const comment = new CommentEntity();
     comment.date = Date.now();
     comment.body = dto.body;
-
-    await validateObject(comment);
-
     const book = await this.BookRepository.findOneBy({
       _id: new ObjectId(book_id),
     });
     if (!book) throw new NotFoundException(`Book with id ${book_id} not found`);
-
     book.comments.push(comment);
     return await this.CommentRepository.save(comment);
   }
@@ -47,13 +41,10 @@ export class CommentService {
   }
 
   async update(id: ObjectId, dto: UpdateCommentDto) {
-    const comment = this.CommentRepository.findOneBy({ _id: id });
+    const comment = await this.CommentRepository.findOneBy({ _id: id });
     if (!comment)
       throw new NotFoundException(`Comment with id ${id} not found`);
     const updated = Object.assign(comment, dto);
-
-    await validateObject(updated);
-
     return await this.CommentRepository.save(updated);
   }
 

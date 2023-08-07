@@ -5,7 +5,3 @@ export interface User {
   password: string;
   role: number;
 }
-
-export interface UserRo {
-  user: User;
-}
